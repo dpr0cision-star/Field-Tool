@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Door Hardware Field Card</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#12203a;
+  --ink-soft:#3c4d6b;
+  --line:#c9d2e0;
+  --line-soft:#e3e8f0;
+  --paper:#f6f7fb;
+  --card:#ffffff;
+  --safety:#c8501a;
+  --safety-soft:#fdece2;
+  --ok:#1f7a4d;
+  --ok-soft:#e4f4ea;
+  --field-w: min(760px, 100%);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing:border-box;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#e7ecf6; --ink-soft:#aab6cc; --line:#33415e; --line-soft:#26314a;
+    --paper:#0e1420; --card:#151d2d; --safety:#ff7b3d; --safety-soft:#2a1c15;
+    --ok:#5fd393; --ok-soft:#12271d;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#e7ecf6; --ink-soft:#aab6cc; --line:#33415e; --line-soft:#26314a;
+  --paper:#0e1420; --card:#151d2d; --safety:#ff7b3d; --safety-soft:#2a1c15;
+  --ok:#5fd393; --ok-soft:#12271d;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+  font-family:"Iosevka","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  -webkit-tap-highlight-color:transparent;}
+body{padding-bottom:96px;}
+.wrap{max-width:var(--field-w);margin:0 auto;padding:0 14px;}
+
+header.top{
+  position:sticky; top:0; z-index:20;
+  background:var(--ink); color:#fff;
+  padding-top:calc(10px + env(safe-area-inset-top,0px));
+  padding-bottom:10px;
+  border-bottom:3px solid var(--safety);
+}
+header.top .row{display:flex; align-items:center; justify-content:space-between; gap:10px; max-width:var(--field-w); margin:0 auto; padding:0 14px;}
+header.top h1{font-size:15px; margin:0; letter-spacing:.02em; font-weight:700;}
+header.top .sub{font-size:10.5px; color:#b9c3da; margin-top:2px;}
+.count-pill{background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.28);
+  border-radius:20px; padding:5px 11px; font-size:12px; white-space:nowrap;}
+
+.section{background:var(--card); border:1px solid var(--line); border-radius:10px;
+  margin:14px 0; overflow:hidden;}
+.section h2{
+  margin:0; padding:9px 12px; font-size:11.5px; letter-spacing:.06em;
+  background:var(--line-soft); color:var(--ink-soft); border-bottom:1px solid var(--line);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.section h2 .n{color:var(--safety); font-weight:700;}
+.section .body{padding:12px;}
+
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.grid.g3{grid-template-columns:1fr 1fr 1fr;}
+.field{display:flex; flex-direction:column; gap:5px; margin-bottom:10px;}
+.field.full{grid-column:1/-1;}
+.field label{font-size:10.5px; color:var(--ink-soft); letter-spacing:.03em;}
+.field input, .field select, .field textarea{
+  font-family:inherit; font-size:15px; color:var(--ink); background:var(--paper);
+  border:1px solid var(--line); border-radius:7px; padding:9px 8px; width:100%;
+}
+.field textarea{resize:vertical; min-height:44px;}
+.field input:focus, .field select:focus, .field textarea:focus{
+  outline:2px solid var(--safety); outline-offset:1px; border-color:var(--safety);
+}
+.seg{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden;}
+.seg button{flex:1; border:none; background:var(--paper); color:var(--ink-soft);
+  font-family:inherit; font-size:13px; padding:9px 4px; border-right:1px solid var(--line);
+  cursor:pointer;}
+.seg button:last-child{border-right:none;}
+.seg button.on{background:var(--safety); color:#fff; font-weight:700;}
+
+/* --- diagram --- */
+.diagram-wrap{padding:10px; background:var(--paper);}
+svg.doorsvg text{font-family:inherit; fill:var(--ink-soft);}
+svg.doorsvg .doorbody{fill:var(--line-soft); stroke:var(--ink-soft); stroke-width:1.2;}
+svg.doorsvg .dim{stroke:var(--ink-soft); stroke-width:1; fill:none;}
+svg.doorsvg .callout{fill:var(--card); stroke:var(--line); stroke-width:1;}
+svg.doorsvg .liveval{fill:var(--safety); font-weight:700;}
+
+.hinge-row{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+.hinge-row .field label{font-size:9.5px;}
+
+.bigbtn{width:100%; padding:14px; border:none; border-radius:10px; font-family:inherit;
+  font-size:14px; font-weight:700; letter-spacing:.02em; cursor:pointer;}
+.btn-save{background:var(--safety); color:#fff;}
+.btn-ghost{background:transparent; color:var(--ink-soft); border:1px solid var(--line);}
+.btn-ok{background:var(--ok); color:#fff;}
+
+.list-card{border:1px solid var(--line); border-radius:9px; padding:10px 12px; margin-bottom:9px;
+  background:var(--card); display:flex; justify-content:space-between; align-items:center; gap:8px;}
+.list-card .lc-main{min-width:0;}
+.list-card .lc-title{font-size:13.5px; font-weight:700;}
+.list-card .lc-sub{font-size:11px; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.list-card .lc-actions{display:flex; gap:6px; flex-shrink:0;}
+.iconbtn{border:1px solid var(--line); background:var(--paper); color:var(--ink-soft);
+  border-radius:7px; font-family:inherit; font-size:11px; padding:7px 9px; cursor:pointer;}
+.iconbtn.danger{color:var(--safety); border-color:var(--safety);}
+
+.footerbar{position:fixed; left:0; right:0; bottom:0; z-index:30;
+  background:var(--card); border-top:1px solid var(--line);
+  padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));
+}
+.footerbar .row{display:flex; gap:8px; max-width:var(--field-w); margin:0 auto;}
+.footerbar .row>*{flex:1;}
+
+.empty{padding:22px 12px; text-align:center; color:var(--ink-soft); font-size:12.5px;}
+.hint{font-size:11px; color:var(--ink-soft); padding:0 12px 12px; line-height:1.5;}
+.toast{position:fixed; left:50%; transform:translateX(-50%); bottom:78px; z-index:40;
+  background:var(--ink); color:#fff; padding:9px 16px; border-radius:20px; font-size:12.5px;
+  opacity:0; pointer-events:none; transition:opacity .2s ease;}
+.toast.show{opacity:1;}
+h1,h2{font-family:inherit;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="row">
+    <div>
+      <h1>DOOR HARDWARE FIELD CARD</h1>
+      <div class="sub" id="modeLabel">New opening entry</div>
+    </div>
+    <div class="count-pill" id="countPill">0 saved</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- OPENING BASICS -->
+  <div class="section">
+    <h2><span>OPENING INFO</span></h2>
+    <div class="body">
+      <div class="grid">
+        <div class="field"><label>OPENING #</label><input id="f_opening" inputmode="text" placeholder="e.g. 101"></div>
+        <div class="field"><label>MARK NUMBER</label><input id="f_mark" placeholder="e.g. 101A"></div>
+        <div class="field full"><label>LOCATION / ROOM</label><input id="f_location" placeholder="e.g. Corridor 1 - Rm 101"></div>
+        <div class="field"><label>DOOR TYPE</label>
+          <div class="seg" id="seg_doortype">
+            <button data-v="Single" class="on">SINGLE</button>
+            <button data-v="Pair">PAIR</button>
+          </div>
+        </div>
+        <div class="field"><label>QTY REQ'D</label><input id="f_qty" type="number" min="0" value="1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIAGRAM -->
+  <div class="section">
+    <h2><span>DOOR ELEVATION - LIVE DIMENSIONS</span></h2>
+    <div class="diagram-wrap">
+      <svg class="doorsvg" viewBox="0 0 320 210" width="100%">
+        <!-- door body -->
+        <rect class="doorbody" x="120" y="20" width="70" height="150"/>
+        <!-- hinge marks -->
+        <rect x="120" y="34" width="4" height="14" fill="var(--ink-soft)"/>
+        <rect x="120" y="86" width="4" height="14" fill="var(--ink-soft)"/>
+        <rect x="120" y="138" width="4" height="14" fill="var(--ink-soft)"/>
+        <!-- lock/latch -->
+        <circle cx="184" cy="96" r="2.4" fill="var(--ink-soft)"/>
+        <!-- width dim -->
+        <line class="dim" x1="120" y1="12" x2="190" y2="12"/>
+        <line class="dim" x1="120" y1="8" x2="120" y2="16"/>
+        <line class="dim" x1="190" y1="8" x2="190" y2="16"/>
+        <text x="155" y="9" font-size="7" text-anchor="middle">ACTUAL DOOR WIDTH</text>
+        <text x="155" y="19" font-size="9" text-anchor="middle" class="liveval" id="sv_width">-</text>
+        <!-- height dim -->
+        <line class="dim" x1="200" y1="20" x2="200" y2="170"/>
+        <line class="dim" x1="196" y1="20" x2="204" y2="20"/>
+        <line class="dim" x1="196" y1="170" x2="204" y2="170"/>
+        <text x="222" y="98" font-size="7" text-anchor="middle" transform="rotate(90 222 98)">ACTUAL DOOR HEIGHT</text>
+        <text x="236" y="98" font-size="9" text-anchor="middle" class="liveval" id="sv_height" transform="rotate(90 236 98)">-</text>
+        <!-- hand -->
+        <text x="20" y="30" font-size="7">HAND</text>
+        <text x="20" y="42" font-size="9" text-anchor="start" class="liveval" id="sv_hand">-</text>
+        <!-- thickness / material callout -->
+        <rect class="callout" x="8" y="60" width="94" height="30" rx="3"/>
+        <text x="14" y="72" font-size="7">THICKNESS / MATERIAL</text>
+        <text x="14" y="84" font-size="8.5" class="liveval" id="sv_thkmat">-</text>
+        <!-- backset callout -->
+        <rect class="callout" x="8" y="98" width="94" height="26" rx="3"/>
+        <text x="14" y="109" font-size="7">LOCK BACKSET (Note 2)</text>
+        <text x="14" y="120" font-size="8.5" class="liveval" id="sv_backset">2-3/4" common</text>
+        <!-- hinge size callout -->
+        <rect class="callout" x="8" y="130" width="94" height="26" rx="3"/>
+        <text x="14" y="141" font-size="7">HINGE PROVISIONS (Note 4)</text>
+        <text x="14" y="152" font-size="8" class="liveval" id="sv_hinge">-</text>
+        <!-- lock provisions -->
+        <rect class="callout" x="8" y="162" width="184" height="26" rx="3"/>
+        <text x="14" y="173" font-size="7">LOCK PROVISIONS</text>
+        <text x="14" y="184" font-size="7.5" class="liveval" id="sv_lockprov">-</text>
+        <!-- inactive leaf -->
+        <rect class="callout" x="200" y="130" width="112" height="30" rx="3"/>
+        <text x="206" y="141" font-size="7">IF INACTIVE LEAF (Note 6)</text>
+        <text x="206" y="152" font-size="7.5" class="liveval" id="sv_inactive">-</text>
+        <!-- closer reinf -->
+        <rect class="callout" x="200" y="98" width="112" height="26" rx="3"/>
+        <text x="206" y="109" font-size="7">CLOSER REINFORCEMENT</text>
+        <text x="206" y="120" font-size="8" class="liveval" id="sv_closer">-</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- MEASUREMENTS -->
+  <div class="section">
+    <h2><span>MEASUREMENTS</span></h2>
+    <div class="body">
+      <div class="grid">
+        <div class="field"><label>OPENING WIDTH (in)</label><input id="f_width" type="number" step="0.0625"></div>
+        <div class="field"><label>OPENING HEIGHT (in)</label><input id="f_height" type="number" step="0.0625"></div>
+        <div class="field full"><label>WALL TYPE</label>
+          <select id="f_walltype"></select>
+        </div>
+        <div class="field"><label>WALL THICKNESS MEASURED (in)</label><input id="f_wallthk" type="text" placeholder="4-7/8"></div>
+        <div class="field full"><label>FRAME TYPE</label>
+          <select id="f_frametype">
+            <option>KD Drywall (wrap)</option>
+            <option>Welded / Masonry</option>
+          </select>
+        </div>
+      </div>
+      <div class="field full"><label>HINGE LOCATIONS, TOP OF DOOR TO CENTER OF HINGE (in) - Note 4</label></div>
+      <div class="hinge-row">
+        <div class="field"><label>HINGE 1</label><input id="f_h1" type="text" placeholder="5"></div>
+        <div class="field"><label>HINGE 2</label><input id="f_h2" type="text" placeholder="37-1/4"></div>
+        <div class="field"><label>HINGE 3</label><input id="f_h3" type="text" placeholder="69-1/2"></div>
+        <div class="field"><label>HINGE 4 (if req'd)</label><input id="f_h4" type="text"></div>
+      </div>
+      <div class="grid">
+        <div class="field"><label>STRIKE 1, TOP OF DOOR TO C/L (in)</label><input id="f_strike1" type="text" placeholder="43-11/16"></div>
+        <div class="field"><label>STRIKE 2 (in) - pairs only</label><input id="f_strike2" type="text"></div>
+      </div>
+      <details style="margin-top:4px;">
+        <summary style="font-size:11px; color:var(--ink-soft); cursor:pointer;">Frame size overrides (leave blank to let the workbook pick the standard size)</summary>
+        <div class="grid" style="margin-top:8px;">
+          <div class="field"><label>FRAME W TO ORDER OVERRIDE (in)</label><input id="f_framew" type="text"></div>
+          <div class="field"><label>FRAME H TO ORDER OVERRIDE (in)</label><input id="f_frameh" type="text"></div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- SIDELIGHT FRAMES -->
+  <div class="section">
+    <h2><span>SIDELIGHT FRAMES</span></h2>
+    <div class="body">
+      <div class="field full"><label>SIDELIGHTS</label>
+        <div class="seg" id="seg_sidelights">
+          <button data-v="None" class="on">NONE</button>
+          <button data-v="Left Only">LEFT</button>
+          <button data-v="Right Only">RIGHT</button>
+          <button data-v="Both">BOTH</button>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field"><label>MULLION WIDTH, EACH (in)</label><input id="f_mullion" type="text" placeholder="4"></div>
+        <div class="field"><label>SIDELIGHT HEIGHT OVERRIDE (in)</label><input id="f_slheight" type="text" placeholder="leave blank = door height"></div>
+        <div class="field"><label>SIDELIGHT WIDTH - LEFT (in)</label><input id="f_slwidthL" type="text"></div>
+        <div class="field"><label>SIDELIGHT WIDTH - RIGHT (in)</label><input id="f_slwidthR" type="text"></div>
+      </div>
+      <div class="field full"><label>GLASS / KIT NOTES</label><textarea id="f_slnotes" placeholder="Glass type, kit #, tempered, etc."></textarea></div>
+    </div>
+  </div>
+
+  <!-- DOOR MATERIAL & FINISH - VT INDUSTRIES for wood -->
+  <div class="section">
+    <h2><span>DOOR MATERIAL &amp; FINISH</span></h2>
+    <div class="body">
+      <div class="field full"><label>DOOR MATERIAL</label>
+        <div class="seg" id="seg_vtface">
+          <button data-v="Hollow Metal" class="on">HOLLOW METAL</button>
+          <button data-v="Wood Veneer">WOOD VENEER</button>
+          <button data-v="Paint Grade (MDF)">PAINT GRADE</button>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field full"><label>COLLECTION</label>
+          <select id="f_vtcollection">
+            <option>Heritage</option><option>Artistry</option><option>Supa (Paint Grade)</option>
+          </select>
+        </div>
+        <div class="field"><label>VENEER SPECIES</label>
+          <select id="f_vtspecies">
+            <option>Red Oak</option><option>White Oak (Select White)</option><option>Natural Birch</option>
+            <option>White Birch</option><option>White Maple</option><option>Mahogany</option>
+            <option>Cherry</option><option>Walnut</option><option>N/A - Paint Grade</option>
+          </select>
+        </div>
+        <div class="field"><label>VENEER CUT</label>
+          <select id="f_vtcut">
+            <option>Plain Sliced</option><option>Rotary Cut</option><option>Quarter Sliced</option>
+            <option>Rift Cut</option><option>N/A</option>
+          </select>
+        </div>
+        <div class="field full"><label>FACTORY FINISH COLOR</label>
+          <select id="f_vtcolor">
+            <option>Alpine AL18</option><option>Chocolate CH18</option><option>Clear CL18</option>
+            <option>Mocha MA24</option><option>Onyx ON18</option><option>Ravine RA18</option>
+            <option>Riverstone RI18</option><option>Savanna SA18</option><option>Toffee TF24</option>
+            <option>Umber UM24</option><option>Wheat WH18</option><option>Custom Match</option>
+            <option>N/A - Paint Grade</option>
+          </select>
+        </div>
+        <div class="field full"><label>PAINT COLOR / CUSTOM MATCH</label><input id="f_vtpaint" placeholder="e.g. SW 7005 Pure White, or custom stain match description"></div>
+      </div>
+      <div class="field full"><label>SPECIAL OPTIONS / NOTES</label><textarea id="f_vtnotes" placeholder="Sketch face, inlay, split species, oversized, etc."></textarea></div>
+    </div>
+  </div>
+
+  <!-- TEMPLATE FIELDS - matches the paper hardware schedule -->
+  <div class="section">
+    <h2><span>A &nbsp;HAND OF DOOR</span></h2>
+    <div class="body">
+      <div class="seg" id="seg_hand">
+        <button data-v="LH">LH</button>
+        <button data-v="RH" class="on">RH</button>
+        <button data-v="LHR">LHR</button>
+        <button data-v="RHR">RHR</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span>B &nbsp;DOOR THICKNESS &nbsp;&nbsp; C &nbsp;MATERIAL</span></h2>
+    <div class="body">
+      <div class="grid">
+        <div class="field"><label>THICKNESS</label>
+          <div class="seg" id="seg_thick">
+            <button data-v='1-3/4"' class="on">1-3/4&quot;</button>
+            <button data-v='1-3/8"'>1-3/8&quot;</button>
+          </div>
+        </div>
+        <div class="field"><label>MATERIAL</label>
+          <select id="f_material">
+            <option>20 GA</option><option>18 GA</option><option>16 GA</option><option>14 GA</option>
+            <option>Cold Rolled</option><option>Galvanized</option><option>Stainless</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span>D &nbsp;LOCK PROVISIONS</span></h2>
+    <div class="body">
+      <div class="field full"><select id="f_lockprov">
+        <option value='CYL. GOVT. 161 - 1-1/8" x 2-1/4" EDGE'>CYL. GOVT. 161 - 1-1/8" x 2-1/4" EDGE</option>
+        <option value='MORTISE EDGE - 1-1/4" x 8"'>MORTISE EDGE - 1-1/4" x 8"</option>
+        <option value='BLANK - NO CUTOUT'>BLANK - NO CUTOUT</option>
+        <option value='DEADLOCK - 1-1/8" x 2-1/4" EDGE'>DEADLOCK - 1-1/8" x 2-1/4" EDGE</option>
+        <option value='PANIC: RIM'>PANIC: RIM</option>
+        <option value='PANIC: VERTICAL ROD'>PANIC: VERTICAL ROD</option>
+        <option value='PANIC: CONCEALED'>PANIC: CONCEALED</option>
+      </select></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span>E &nbsp;HINGE PROVISIONS</span></h2>
+    <div class="body">
+      <div class="field full"><select id="f_hingeprov">
+        <option>3-1/2" STD WGHT</option><option>3-1/2" HEAVY WGHT</option>
+        <option>4-1/2" STD WGHT</option><option>4-1/2" HEAVY WGHT</option>
+        <option>5" STD WGHT</option><option>5" HEAVY WGHT</option>
+      </select></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span>F &nbsp;CLOSER REINFORCEMENT</span></h2>
+    <div class="body">
+      <div class="seg" id="seg_closer">
+        <button data-v="Required">REQUIRED</button>
+        <button data-v="Not Required" class="on">NOT REQ'D</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span>G &nbsp;IF INACTIVE LEAF</span></h2>
+    <div class="body">
+      <div class="seg" id="seg_inactive">
+        <button data-v="N/A" class="on">N/A</button>
+        <button data-v="Astragal">ASTRAGAL</button>
+        <button data-v='No Astragal (Width + 3/32")'>NO ASTR.</button>
+        <button data-v="Flush Bolts">FLUSH BOLTS</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HARDWARE PICKS (feed Openings tab) -->
+  <div class="section">
+    <h2><span>HARDWARE / ORDER SHEET FIELDS</span></h2>
+    <div class="body">
+      <div class="grid">
+        <div class="field full"><label>LOCKSET / EXIT DEVICE</label><select id="f_lockset"></select></div>
+        <div class="field"><label>CLOSER</label><select id="f_closerhw"></select></div>
+        <div class="field"><label>OVERHEAD STOP</label><select id="f_overhead"></select></div>
+        <div class="field"><label>VISION</label><select id="f_vision"></select></div>
+        <div class="field"><label>ELECTRIFIED</label><select id="f_electrified"></select></div>
+        <div class="field"><label>LABEL REQ'D</label>
+          <div class="seg" id="seg_label"><button data-v="No" class="on">NO</button><button data-v="Yes">YES</button></div>
+        </div>
+      </div>
+      <div class="field full"><label>NOTES</label><textarea id="f_notes" placeholder="Anything unusual about this opening..."></textarea></div>
+    </div>
+  </div>
+
+  <button class="bigbtn btn-save" id="btnSave" style="margin-bottom:18px;">SAVE THIS OPENING</button>
+  <button class="bigbtn btn-ghost" id="btnClear" style="margin-bottom:22px;">CLEAR FORM / START NEW</button>
+
+  <!-- SAVED LIST -->
+  <div class="section">
+    <h2><span>SAVED OPENINGS ON THIS DEVICE</span><span class="n" id="savedCount">0</span></h2>
+    <div class="body" id="savedList">
+      <div class="empty">No openings saved yet. Fill out the form above and tap Save.</div>
+    </div>
+    <div class="hint">Saved openings live only in this browser on this device. Export before switching phones or clearing browser data.</div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="footerbar">
+  <div class="row">
+    <button class="bigbtn btn-ghost" id="btnClearAll">CLEAR ALL</button>
+    <button class="bigbtn btn-ok" id="btnExport">EXPORT TO EXCEL (.xlsx)</button>
+  </div>
+</div>
+
+<script>
+const WALL_TYPES = ["3-5/8 MS + 5/8 GWB each side","3-5/8 MS + 1/2 GWB each side","2-1/2 MS + 5/8 GWB each side","4 MS + 5/8 GWB each side","6 MS + 5/8 GWB each side","2x4 wood + 5/8 GWB each side","2x6 wood + 5/8 GWB each side","6 in CMU, unfinished","8 in CMU, unfinished","12 in CMU, unfinished"];
+const LOCKSET = ["None","Mortise lock","Cylindrical lock","Panic - rim","Panic - surface vertical rod","Panic - concealed vertical rod","Panic - mortise"];
+const CLOSER_HW = ["None","Surface mount","Concealed"];
+const OVERHEAD = ["None","Surface mount","Concealed"];
+const VISION = ["None","Vision kit","Vision kit - fire rated"];
+const ELECTRIFIED = ["None","Electric strike","Electrified lock","Electrified exit device","Electric hinge / power transfer","Mag lock"];
+
+function fillSelect(id, arr){
+  const el = document.getElementById(id);
+  el.innerHTML = arr.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+}
+fillSelect('f_walltype', WALL_TYPES);
+fillSelect('f_lockset', LOCKSET);
+fillSelect('f_closerhw', CLOSER_HW);
+fillSelect('f_overhead', OVERHEAD);
+fillSelect('f_vision', VISION);
+fillSelect('f_electrified', ELECTRIFIED);
+
+// segmented control wiring
+function seg(id){
+  const box = document.getElementById(id);
+  box.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    [...box.children].forEach(c=>c.classList.remove('on'));
+    b.classList.add('on');
+    updateDiagram();
+  });
+}
+['seg_doortype','seg_hand','seg_thick','seg_closer','seg_inactive','seg_label','seg_sidelights','seg_vtface'].forEach(seg);
+function segVal(id){ return document.querySelector('#'+id+' .on').dataset.v; }
+
+const STORE_KEY = 'doorFieldCard.entries.v1';
+let editingId = null;
+
+function loadEntries(){
+  try{ return JSON.parse(localStorage.getItem(STORE_KEY)||'[]'); }catch(e){ return []; }
+}
+function saveEntries(list){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(list)); }catch(e){}
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(showToast._h);
+  showToast._h = setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+function fracDisplay(v){ return v===''||v==null ? '-' : v; }
+
+function updateDiagram(){
+  document.getElementById('sv_width').textContent = document.getElementById('f_width').value || '-';
+  document.getElementById('sv_height').textContent = document.getElementById('f_height').value || '-';
+  document.getElementById('sv_hand').textContent = segVal('seg_hand');
+  document.getElementById('sv_thkmat').textContent = segVal('seg_thick') + ' / ' + document.getElementById('f_material').value;
+  document.getElementById('sv_hinge').textContent = document.getElementById('f_hingeprov').value;
+  document.getElementById('sv_lockprov').textContent = document.getElementById('f_lockprov').value;
+  document.getElementById('sv_closer').textContent = segVal('seg_closer');
+  document.getElementById('sv_inactive').textContent = segVal('seg_inactive');
+}
+['f_width','f_height','f_material','f_hingeprov','f_lockprov'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', updateDiagram);
+  document.getElementById(id).addEventListener('change', updateDiagram);
+});
+
+function collectForm(){
+  return {
+    id: editingId || (Date.now()+''+Math.random().toString(16).slice(2)),
+    opening: document.getElementById('f_opening').value.trim(),
+    mark: document.getElementById('f_mark').value.trim(),
+    location: document.getElementById('f_location').value.trim(),
+    doorType: segVal('seg_doortype'),
+    qty: document.getElementById('f_qty').value,
+    width: document.getElementById('f_width').value,
+    height: document.getElementById('f_height').value,
+    wallType: document.getElementById('f_walltype').value,
+    wallThk: document.getElementById('f_wallthk').value.trim(),
+    frameType: document.getElementById('f_frametype').value,
+    frameW: document.getElementById('f_framew').value.trim(),
+    frameH: document.getElementById('f_frameh').value.trim(),
+    sidelights: segVal('seg_sidelights'),
+    mullion: document.getElementById('f_mullion').value.trim(),
+    slHeight: document.getElementById('f_slheight').value.trim(),
+    slWidthL: document.getElementById('f_slwidthL').value.trim(),
+    slWidthR: document.getElementById('f_slwidthR').value.trim(),
+    slNotes: document.getElementById('f_slnotes').value.trim(),
+    vtFace: segVal('seg_vtface'),
+    vtCollection: document.getElementById('f_vtcollection').value,
+    vtSpecies: document.getElementById('f_vtspecies').value,
+    vtCut: document.getElementById('f_vtcut').value,
+    vtColor: document.getElementById('f_vtcolor').value,
+    vtPaint: document.getElementById('f_vtpaint').value.trim(),
+    vtNotes: document.getElementById('f_vtnotes').value.trim(),
+    h1: document.getElementById('f_h1').value.trim(),
+    h2: document.getElementById('f_h2').value.trim(),
+    h3: document.getElementById('f_h3').value.trim(),
+    h4: document.getElementById('f_h4').value.trim(),
+    strike1: document.getElementById('f_strike1').value.trim(),
+    strike2: document.getElementById('f_strike2').value.trim(),
+    hand: segVal('seg_hand'),
+    thickness: segVal('seg_thick'),
+    material: document.getElementById('f_material').value,
+    lockProvisions: document.getElementById('f_lockprov').value,
+    hingeProvisions: document.getElementById('f_hingeprov').value,
+    closerReinforcement: segVal('seg_closer'),
+    inactiveLeaf: segVal('seg_inactive'),
+    lockset: document.getElementById('f_lockset').value,
+    closer: document.getElementById('f_closerhw').value,
+    overhead: document.getElementById('f_overhead').value,
+    vision: document.getElementById('f_vision').value,
+    electrified: document.getElementById('f_electrified').value,
+    labelReqd: segVal('seg_label'),
+    notes: document.getElementById('f_notes').value.trim(),
+  };
+}
+
+function fillForm(e){
+  document.getElementById('f_opening').value = e.opening||'';
+  document.getElementById('f_mark').value = e.mark||'';
+  document.getElementById('f_location').value = e.location||'';
+  setSeg('seg_doortype', e.doorType||'Single');
+  document.getElementById('f_qty').value = e.qty||1;
+  document.getElementById('f_width').value = e.width||'';
+  document.getElementById('f_height').value = e.height||'';
+  document.getElementById('f_walltype').value = e.wallType||WALL_TYPES[0];
+  document.getElementById('f_wallthk').value = e.wallThk||'';
+  document.getElementById('f_frametype').value = e.frameType||'KD Drywall (wrap)';
+  document.getElementById('f_framew').value = e.frameW||'';
+  document.getElementById('f_frameh').value = e.frameH||'';
+  setSeg('seg_sidelights', e.sidelights||'None');
+  document.getElementById('f_mullion').value = e.mullion||'';
+  document.getElementById('f_slheight').value = e.slHeight||'';
+  document.getElementById('f_slwidthL').value = e.slWidthL||'';
+  document.getElementById('f_slwidthR').value = e.slWidthR||'';
+  document.getElementById('f_slnotes').value = e.slNotes||'';
+  setSeg('seg_vtface', e.vtFace||'Hollow Metal');
+  document.getElementById('f_vtcollection').value = e.vtCollection||'Heritage';
+  document.getElementById('f_vtspecies').value = e.vtSpecies||'Red Oak';
+  document.getElementById('f_vtcut').value = e.vtCut||'Plain Sliced';
+  document.getElementById('f_vtcolor').value = e.vtColor||'Alpine AL18';
+  document.getElementById('f_vtpaint').value = e.vtPaint||'';
+  document.getElementById('f_vtnotes').value = e.vtNotes||'';
+  document.getElementById('f_h1').value = e.h1||'';
+  document.getElementById('f_h2').value = e.h2||'';
+  document.getElementById('f_h3').value = e.h3||'';
+  document.getElementById('f_h4').value = e.h4||'';
+  document.getElementById('f_strike1').value = e.strike1||'';
+  document.getElementById('f_strike2').value = e.strike2||'';
+  setSeg('seg_hand', e.hand||'RH');
+  setSeg('seg_thick', e.thickness||'1-3/4"');
+  document.getElementById('f_material').value = e.material||'18 GA';
+  document.getElementById('f_lockprov').value = e.lockProvisions||document.getElementById('f_lockprov').options[0].value;
+  document.getElementById('f_hingeprov').value = e.hingeProvisions||document.getElementById('f_hingeprov').options[0].value;
+  setSeg('seg_closer', e.closerReinforcement||'Not Required');
+  setSeg('seg_inactive', e.inactiveLeaf||'N/A');
+  document.getElementById('f_lockset').value = e.lockset||'None';
+  document.getElementById('f_closerhw').value = e.closer||'None';
+  document.getElementById('f_overhead').value = e.overhead||'None';
+  document.getElementById('f_vision').value = e.vision||'None';
+  document.getElementById('f_electrified').value = e.electrified||'None';
+  setSeg('seg_label', e.labelReqd||'No');
+  document.getElementById('f_notes').value = e.notes||'';
+  updateDiagram();
+}
+function setSeg(id, val){
+  const box = document.getElementById(id);
+  [...box.children].forEach(c=>c.classList.toggle('on', c.dataset.v===val));
+}
+
+function clearForm(){
+  editingId = null;
+  document.getElementById('modeLabel').textContent = 'New opening entry';
+  ['f_opening','f_mark','f_location','f_wallthk','f_framew','f_frameh','f_h1','f_h2','f_h3','f_h4','f_strike1','f_strike2','f_mullion','f_slheight','f_slwidthL','f_slwidthR','f_slnotes','f_vtpaint','f_vtnotes','f_notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f_qty').value = 1;
+  document.getElementById('f_width').value=''; document.getElementById('f_height').value='';
+  document.getElementById('f_walltype').value = WALL_TYPES[0];
+  document.getElementById('f_frametype').value = 'KD Drywall (wrap)';
+  setSeg('seg_doortype','Single'); setSeg('seg_hand','RH'); setSeg('seg_thick','1-3/4"');
+  setSeg('seg_closer','Not Required'); setSeg('seg_inactive','N/A'); setSeg('seg_label','No');
+  setSeg('seg_sidelights','None');
+  setSeg('seg_vtface','Hollow Metal');
+  document.getElementById('f_vtcollection').value='Heritage';
+  document.getElementById('f_vtspecies').value='Red Oak';
+  document.getElementById('f_vtcut').value='Plain Sliced';
+  document.getElementById('f_vtcolor').value='Alpine AL18';
+  document.getElementById('f_material').value='18 GA';
+  document.getElementById('f_lockset').value='None'; document.getElementById('f_closerhw').value='None';
+  document.getElementById('f_overhead').value='None'; document.getElementById('f_vision').value='None';
+  document.getElementById('f_electrified').value='None';
+  updateDiagram();
+}
+
+function renderList(){
+  const list = loadEntries();
+  document.getElementById('countPill').textContent = list.length + ' saved';
+  document.getElementById('savedCount').textContent = list.length;
+  const box = document.getElementById('savedList');
+  if(!list.length){
+    box.innerHTML = '<div class="empty">No openings saved yet. Fill out the form above and tap Save.</div>';
+    return;
+  }
+  box.innerHTML = list.map(e=>`
+    <div class="list-card">
+      <div class="lc-main">
+        <div class="lc-title">#${e.opening||'?'} - ${e.mark||'no mark'}</div>
+        <div class="lc-sub">${e.location||''} - ${e.doorType} - ${e.width||'?'}x${e.height||'?'}</div>
+      </div>
+      <div class="lc-actions">
+        <button class="iconbtn" data-edit="${e.id}">EDIT</button>
+        <button class="iconbtn danger" data-del="${e.id}">DEL</button>
+      </div>
+    </div>`).join('');
+}
+
+document.getElementById('savedList').addEventListener('click', e=>{
+  const editId = e.target.dataset.edit, delId = e.target.dataset.del;
+  const list = loadEntries();
+  if(editId){
+    const found = list.find(x=>x.id===editId);
+    if(found){ editingId = found.id; fillForm(found);
+      document.getElementById('modeLabel').textContent = 'Editing opening #'+(found.opening||'');
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
+  } else if(delId){
+    saveEntries(list.filter(x=>x.id!==delId));
+    renderList();
+    showToast('Deleted');
+  }
+});
+
+document.getElementById('btnSave').addEventListener('click', ()=>{
+  const e = collectForm();
+  if(!e.opening){ showToast('Enter an Opening # first'); return; }
+  const list = loadEntries();
+  const idx = list.findIndex(x=>x.id===e.id);
+  if(idx>=0) list[idx]=e; else list.push(e);
+  saveEntries(list);
+  renderList();
+  showToast('Saved opening #'+e.opening);
+  clearForm();
+});
+
+document.getElementById('btnClear').addEventListener('click', ()=>{ clearForm(); showToast('Form cleared'); });
+
+document.getElementById('btnClearAll').addEventListener('click', ()=>{
+  if(confirm('Delete all saved openings on this device? This cannot be undone.')){
+    saveEntries([]); renderList(); showToast('All entries cleared');
+  }
+});
+
+function decToFraction16(dec){
+  // reduce a decimal's fractional part to the nearest 16th, as "n/d"
+  let n = Math.round(dec*16);
+  if(n===0) return null;
+  if(n===16) return null; // whole number, caller handles carry
+  let d = 16;
+  while(n%2===0 && d%2===0){ n/=2; d/=2; }
+  return `${n}/${d}`;
+}
+function sizeText(widthIn, heightIn, jambIn){
+  if(widthIn==null||heightIn==null||jambIn==null||isNaN(widthIn)||isNaN(heightIn)||isNaN(jambIn)) return '';
+  function part(val){
+    let ft = Math.floor(val/12);
+    let rem = val - ft*12;
+    let whole = Math.floor(rem);
+    let frac = decToFraction16(rem-whole);
+    if(frac===null && Math.round(rem)===whole+1){ whole+=1; frac=null; }
+    return `${ft}'-${whole}${frac? '-'+frac:''}"`;
+  }
+  function jambPart(val){
+    let whole = Math.floor(val);
+    let frac = decToFraction16(val-whole);
+    if(frac===null && Math.round(val)===whole+1){ whole+=1; frac=null; }
+    return `${whole}${frac? '-'+frac:''}"`;
+  }
+  return `${part(widthIn)} x ${part(heightIn)} x ${jambPart(jambIn)} JD`;
+}
+function snapToStandard(value, list){
+  for(const v of list){ if(value<=v) return v; }
+  return value;
+}
+const STD_SINGLE = [24,28,30,32,34,36,40,42,44,48];
+const STD_PAIR = [48,56,60,64,68,72,80,84,88,96];
+const STD_HEIGHT = [80,84,96,108,120];
+const BACKBEND = 0.5, ROUND_NEAREST = 0.125;
+
+function computeFrame(e){
+  const width = parseFloat(e.width), height = parseFloat(e.height);
+  const hasSidelights = e.sidelights==='Left Only'||e.sidelights==='Right Only'||e.sidelights==='Both';
+  let frameW = null, frameH = null, jamb = null, sizeTxt = '';
+  if(!isNaN(width)){
+    if(hasSidelights){
+      const mullionCt = e.sidelights==='Both' ? 2 : 1;
+      const mullion = parseFloat(e.mullion)||0;
+      const wL = (e.sidelights==='Left Only'||e.sidelights==='Both') ? (parseFloat(e.slWidthL)||0) : 0;
+      const wR = (e.sidelights==='Right Only'||e.sidelights==='Both') ? (parseFloat(e.slWidthR)||0) : 0;
+      frameW = width + mullionCt*mullion + wL + wR;
+    } else {
+      frameW = snapToStandard(width, e.doorType==='Pair' ? STD_PAIR : STD_SINGLE);
+    }
+  }
+  if(!isNaN(height)){
+    const slH = parseFloat(e.slHeight);
+    const effH = !isNaN(slH) ? Math.max(height, slH) : height;
+    frameH = hasSidelights ? effH : (!isNaN(slH) ? Math.max(snapToStandard(height, STD_HEIGHT), slH) : snapToStandard(height, STD_HEIGHT));
+  }
+  const wallThk = parseFloat(e.wallThk);
+  if(!isNaN(wallThk)){
+    jamb = Math.round(wallThk/ROUND_NEAREST)*ROUND_NEAREST + 2*BACKBEND;
+  }
+  if(frameW!=null && frameH!=null && jamb!=null){
+    sizeTxt = sizeText(frameW, frameH, jamb);
+  }
+  return {frameW, frameH, jamb, sizeTxt};
+}
+
+const SIZE_TEXT_JS_TPL = "IF(OR({{J}}=\"\",NOT(ISNUMBER({{W}})),NOT(ISNUMBER({{HGT}}))),\"\",INT({{W}}/12)&\"'-\"&IF(ROUND({{W}}-12*INT({{W}}/12),4)=0,\"0\",SUBSTITUTE(TRIM(TEXT({{W}}-12*INT({{W}}/12),\"# ??/??\")),\" \",\"-\"))&\"\"\" x \"&INT({{HGT}}/12)&\"'-\"&IF(ROUND({{HGT}}-12*INT({{HGT}}/12),4)=0,\"0\",SUBSTITUTE(TRIM(TEXT({{HGT}}-12*INT({{HGT}}/12),\"# ??/??\")),\" \",\"-\"))&\"\"\" x \"&IF(ROUND({{J}},4)=0,\"0\",SUBSTITUTE(TRIM(TEXT({{J}},\"# ??/??\")),\" \",\"-\"))&\"\"\" JD\")";
+function sizeTextFormula(w,hgt,j){
+  return SIZE_TEXT_JS_TPL.replaceAll('{{W}}',w).replaceAll('{{HGT}}',hgt).replaceAll('{{J}}',j);
+}
+function nestedSnapFormula(values, xExpr){
+  let expr = xExpr;
+  for(const v of [...values].reverse()){ expr = `IF(${xExpr}<=${v},${v},${expr})`; }
+  return expr;
+}
+
+async function doExport(){
+  const list = loadEntries();
+  if(!list.length){ showToast('No saved openings to export yet'); return; }
+
+  let downloads = null;
+  try{
+    if(window.claude && typeof window.claude.use === 'function'){
+      downloads = await window.claude.use("downloads");
+    }
+  }catch(e){ downloads = null; }
+
+  try{
+    const N = list.length;
+    const HEADER = ["Opening #","Location / Room","Qty","FRAME SIZE TO ORDER","Frame Width (in)","Frame Height (in)","Jamb Depth (in)",
+      "Door Type","Width (in)","Height (in)","Thickness","Hand","Material","HM Gauge","Collection","Veneer Species","Veneer Cut",
+      "Finish Color","Paint Color / Custom","Frame Type","Wall Type","Wall Thickness (in)","Hinge Provisions","Hinge Locations (in)",
+      "Lock Provisions","Strike Locations (in)","Closer Reinforcement","Sidelights","Mullion Width (in)","SL Width - Left (in)",
+      "SL Width - Right (in)","SL Height Override (in)","If Inactive Leaf","Glass / Kit Notes","Lockset / Exit Device","Closer",
+      "Overhead Stop","Vision Kit","Electrified","Label Req'd","Notes"];
+    // columns: A..AO (41 cols) - values are pre-computed here in JS, not live Excel formulas,
+    // so the export opens correctly in any viewer with no recalculation step required.
+    const rows = list.map(e=>{
+      const c = computeFrame(e);
+      const hingeLoc = [e.h1,e.h2,e.h3,e.h4].filter(v=>v).join(', ');
+      const strikeLoc = [e.strike1,e.strike2].filter(v=>v).join(', ');
+      return [e.opening,e.location,e.qty,c.sizeTxt,c.frameW,c.frameH,c.jamb,e.doorType,e.width,e.height,e.thickness,e.hand,
+        e.vtFace,e.material,e.vtCollection,e.vtSpecies,e.vtCut,e.vtColor,e.vtPaint,e.frameType,e.wallType,e.wallThk,
+        e.hingeProvisions,hingeLoc,e.lockProvisions,strikeLoc,e.closerReinforcement,e.sidelights,e.mullion,e.slWidthL,
+        e.slWidthR,e.slHeight,e.inactiveLeaf,e.slNotes,e.lockset,e.closer,e.overhead,e.vision,e.electrified,e.labelReqd,e.notes];
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.aoa_to_sheet([HEADER, ...rows]);
+    ws1['!ref'] = `A1:AO${N+1}`;
+    XLSX.utils.book_append_sheet(wb, ws1, "Schedule");
+
+    // Hardware Counts sheet - totals computed here in JS (grouped + summed), written as plain numbers
+    const hingeOpts = [...document.querySelectorAll('#f_hingeprov option')].map(o=>o.value);
+    const lockOpts = [...document.querySelectorAll('#f_lockset option')].map(o=>o.value).filter(v=>v!=='None');
+    const closerOpts = [...document.querySelectorAll('#f_closerhw option')].map(o=>o.value).filter(v=>v!=='None');
+    const overheadOpts = [...document.querySelectorAll('#f_overhead option')].map(o=>o.value).filter(v=>v!=='None');
+    const visionOpts = [...document.querySelectorAll('#f_vision option')].map(o=>o.value).filter(v=>v!=='None');
+    const electrifiedOpts = [...document.querySelectorAll('#f_electrified option')].map(o=>o.value).filter(v=>v!=='None');
+    const inactiveOpts = [...document.querySelectorAll('#seg_inactive button')].map(b=>b.dataset.v).filter(v=>v!=='N/A');
+
+    function qtyOf(e){ const q = parseFloat(e.qty); return isNaN(q) ? 0 : q; }
+    function hingeCountOf(e){ const h = parseFloat(e.height); return (!isNaN(h) && h>90) ? 4 : 3; }
+    function sumWhere(field, value){ return list.filter(e=>e[field]===value).reduce((s,e)=>s+qtyOf(e),0); }
+
+    const hcRows = [["Category","Item / Spec","Qty to Order"]];
+    for(const opt of hingeOpts){
+      const total = list.filter(e=>e.hingeProvisions===opt).reduce((s,e)=>s+qtyOf(e)*hingeCountOf(e),0);
+      hcRows.push(["Hinges", opt, total]);
+    }
+    function addCat(category, field, opts){
+      for(const opt of opts){ hcRows.push([category, opt, sumWhere(field, opt)]); }
+    }
+    addCat("Lockset / Exit Device","lockset",lockOpts);
+    addCat("Closer","closer",closerOpts);
+    addCat("Overhead Stop","overhead",overheadOpts);
+    addCat("Vision Kit","vision",visionOpts);
+    addCat("Electrified","electrified",electrifiedOpts);
+    addCat("Inactive Leaf Hardware","inactiveLeaf",inactiveOpts);
+
+    const ws2 = XLSX.utils.aoa_to_sheet(hcRows);
+    ws2['!ref'] = `A1:C${hcRows.length}`;
+    XLSX.utils.book_append_sheet(wb, ws2, "Hardware Counts");
+
+    const wbArray = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+    const blob = new Blob([wbArray], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const stamp = new Date().toISOString().slice(0,10);
+    const filename = `field-openings-${stamp}.xlsx`;
+
+    if(downloads){
+      const result = await downloads.save({filename, data: blob});
+      if(result.status === 'saved' || result.status === 'delivered'){
+        showToast('Exported '+list.length+' opening(s)');
+      }
+    } else {
+      // Standalone file (opened locally, not via the hosted artifact runtime) - use a plain browser download.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 4000);
+      showToast('Exported '+list.length+' opening(s)');
+    }
+  }catch(err){
+    if(err && err.code === 'declined'){ return; }
+    console.error(err);
+    showToast('Export failed: '+(err && err.code ? err.code : 'try again'));
+  }
+}
+document.getElementById('btnExport').addEventListener('click', doExport);
+
+renderList();
+clearForm();
+</script>
+</body>
+</html>
